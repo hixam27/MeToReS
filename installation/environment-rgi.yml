@@ -1,0 +1,21 @@
+# =============================================================================
+# environment-rgi.yml — MeToReS RGI (CARD) environment
+#
+# Kept separate from the main environment.yml on purpose. RGI's own install
+# docs (github.com/arpcard/rgi) recommend a dedicated environment, because it
+# pins older BLAST/Python-internal versions that conflict with the newer
+# DIAMOND/Salmon-era dependency tree the rest of the pipeline needs. This is
+# a documented RGI limitation, not a workaround for this project's own past
+# environment problems.
+#
+# Build with:
+#   conda env create -f environment-rgi.yml
+# =============================================================================
+name: metores-rgi
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  - rgi

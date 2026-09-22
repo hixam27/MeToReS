@@ -1,0 +1,86 @@
+# =============================================================================
+# environment.yml — MeToReS main environment
+#
+# Contains everything the pipeline needs EXCEPT RGI/CARD, which is kept in a
+# separate environment (environment-rgi.yml).
+# It's because RGI's own installation docs recommend a
+# dedicated env, since it pins older BLAST/Python internals that conflict
+# with the newer DIAMOND/Salmon-era stack the rest of this pipeline needs.
+#
+# Build with:
+#   conda env create -f environment.yml
+# =============================================================================
+name: metores
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # ── Core language runtimes ──────────────────────────────────────────────
+  - python=3.11
+  - r-base=4.3
+
+  # ── Raw read QC / trimming / rRNA removal ───────────────────────────────
+  - fastqc
+  - unzip
+  - trimmomatic=0.41
+  - sortmerna=7.0.0
+  - multiqc
+
+  # ── Assembly / gene prediction / dereplication ──────────────────────────
+  - megahit
+  - prodigal
+  - cd-hit
+  - seqkit
+
+  # ── Gene catalogue QC (MetaQUAST) ────────────────────────────────────────
+  - quast
+
+  # ── Taxonomic classification ────────────────────────────────────────────
+  - kaiju=1.10.1
+
+  # ── Quantification ──────────────────────────────────────────────────────
+  - salmon
+
+  # ── Functional annotation / sequence search ─────────────────────────────
+  - eggnog-mapper=2.1.13
+  - diamond=2.2.4
+
+  # ── Python scientific stack (samplesheet/matrix handling, chemical parsing) ─
+  - pandas
+  - numpy
+  - biopython
+  - openpyxl                 # chemical XLSX parsing (parse_chemical_data.py)
+  - pyyaml
+  - matplotlib                # assembly_qc.py length/GC distribution plots
+
+  # ── Workflow manager itself ──────────────────────────────────────────────
+  - snakemake-minimal
+  # ── R: differential expression + import ─────────────────────────────────
+  - bioconductor-deseq2
+  - bioconductor-tximport
+  - r-optparse
+  - r-ggplot2
+  - r-ggrepel
+  - r-dplyr
+  - r-tibble
+  - r-tidyverse         # includes stringr, dplyr, ggplot2, etc. — listed
+                         # individually above too since scripts also call
+                         # them directly without loading the full meta-package
+  - r-stringr
+  - r-rcolorbrewer
+  - r-ape
+
+  # ── R: ordination / correlation / bioindicator discovery ────────────────
+  - r-vegan
+  - r-ppcor
+  - bioconductor-maaslin2
+  - r-venndiagram
+
+  # ── R: heatmaps / upset plots ─────────────────────────────────────────────
+  - r-pheatmap
+  - r-complexupset
+
+  # ── R: GO term lookup
+  - bioconductor-go.db

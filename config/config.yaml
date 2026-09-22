@@ -1,0 +1,283 @@
+# =============================================================================
+# MeToRes Pipeline — Configuration
+# =============================================================================
+
+# =============================================================================
+# Grouping variable
+# =============================================================================
+group_col: "country" # change it to season, country, contaminant...
+ref_level:  "Greece" # reference level for DESeq2
+
+# =============================================================================
+# Input / Output
+# =============================================================================
+samplesheet: "{base_dir}/samplesheets/samplesheet_mobiles.csv"
+output_dir:  "{base_dir}/results"
+fastq_dir: "{base_dir}/fastq"
+
+
+# =============================================================================
+# General compute resources
+# =============================================================================
+threads: 32
+
+
+# =============================================================================
+# Raw read QC — Trimmomatic
+# =============================================================================
+phred:          "-phred33"
+adapter_path:   "{base_dir}/databases/trimmomatic_adapters/TruSeq3"
+quality_cutoff: "4:15"
+min_len:        25
+
+
+# =============================================================================
+# rRNA removal — SortMeRNA
+# =============================================================================
+sortmerna:
+  bin:     "sortmerna"
+  db:      "{base_dir}/databases/sortmerna/smr_v4.3_default_db.fasta"
+  idx_dir: "{base_dir}/databases/sortmerna/idx"
+  
+
+
+# =============================================================================
+# DESeq2 differential expression
+# =============================================================================
+# Statistical thresholds
+pvalue:       0.05
+fold_change:  2       # Raw fold change — converted to log2 internally
+
+# DESeq2 model
+# Modify the formula to match your experimental design. Examples:
+#   Simple two-group:          "~ group"
+#   With batch correction:     "~ batch + group"
+#   Interaction model:         "~ genotype + treatment + genotype:treatment"
+deseq2:
+  formula:         "~ group"     # 'group' must be the LAST term — DEG_analysis.r uses it to determine the contrast factor
+  min_count:       50     # Min total counts across all samples for pre-filtering
+  group_col: "deseq2_group"     # overrides group_col for DESeq2 only; leave unset to reuse group_col
+  ref_level: "Greece_Natural"   # overrides ref_level for DESeq2 only; leave unset to reuse ref_level
+
+
+# =============================================================================
+# Assembly QC — MetaQUAST + seqkit stats
+# =============================================================================
+assembly_qc:
+  min_contig:    200      # Minimum contig length for MetaQUAST
+  references:    ""       # Comma-separated reference FASTA paths, or "" for reference-free
+  warn_n50:      300      # N50 below this → WARN in summary JSON
+  warn_total_bp: 500000  # Total assembly below this → WARN
+  warn_contigs:  50      # Total contigs below this → WARN
+
+
+# =============================================================================
+# Kaiju taxonomic classification
+# =============================================================================
+kaiju:
+  db:    "{base_dir}/databases/kaiju/progenomes/kaiju_db_progenomes.fmi"
+  nodes: "{base_dir}/databases/kaiju/progenomes/nodes.dmp"
+  names: "{base_dir}/databases/kaiju/progenomes/names.dmp"
+  taxon_filter: "Eukaryota"   # Taxon to flag as contamination
+  rank:         "phylum"         # Rank for summary plots
+  top_n:        20               # Top N taxa in bar chart
+
+
+# =============================================================================
+# Functional annotation — eggNOG-mapper
+# =============================================================================
+eggnog_db: "{base_dir}/databases/eggnog-mapper"
+dmnd_db:   "{base_dir}/databases/eggnog-mapper/eggnog_proteins.dmnd"
+
+
+# =============================================================================
+# MultiQC
+# =============================================================================
+multiqc:
+  title_fastqc: "MeToReS — FastQC Quality Report"
+  title_final:  "MeToReS — Full Pipeline QC Report"
+
+  # ── Report appearance ──────────────────────────────────────────────────────
+  subtitle:  "Assembly | DESeq2 | eggNOG | Kaiju"
+  intro_text: >
+    Quality control report for the MeToReS metatranscriptomics pipeline.
+    Covers raw read QC, adapter trimming, rRNA removal, assembly metrics,
+    taxonomic classification, and gene expression quantification.
+
+  export_plots:  true
+  make_data_dir: true
+  zip_data_dir:  false
+
+  # ── Module order ───────────────────────────────────────────────────────────
+  module_order:
+    - fastqc:
+        name: "FastQC (raw reads)"
+        info: "Quality metrics on raw paired-end FASTQ files."
+        path_filters:
+          - "*_qc/*fastqc*"
+    - trimmomatic:
+        name: "Trimmomatic"
+        info: "Adapter trimming and quality filtering."
+        path_filters:
+          - "*/reads/*/trimmed/*"
+    - sortmerna:
+        name: "SortMeRNA (rRNA removal)"
+        info: "Ribosomal RNA filtering from trimmed reads."
+        path_filters:
+          - "*/reads/*/rmrRNA/*"
+    - salmon:
+        name: "Salmon (quantification)"
+        info: "Quasi-mapping quantification against co-assembled gene catalog."
+        path_filters:
+          - "*_quant/*"
+    - custom_content:
+        name: "Assembly QC + Kaiju"
+        info: "MetaQUAST, seqkit stats, and Kaiju taxonomic classification."
+
+  # ── Sample name cleaning ───────────────────────────────────────────────────
+  fn_clean_exts:
+    - "_1_fastqc"
+    - "_2_fastqc"
+    - "_fastqc"
+    - ".fastq.gz"
+    - "_clean_forward_paired"
+    - "_clean_reverse_paired"
+    - "_rmrRNA"
+    - "_quant"
+
+  # ── General Statistics table ───────────────────────────────────────────────
+  table_columns_visible:
+    FastQC:
+      percent_duplicates:  true
+      percent_gc:          true
+      avg_sequence_length: true
+      total_sequences:     true
+      percent_fails:       false
+    Salmon:
+      percent_mapped:      true
+      num_mapped:          false
+
+  # ── File search patterns ───────────────────────────────────────────────────
+  sp:
+    quast:
+      fn: "report.tsv"
+    custom_content:
+      fn: "*_mqc.yaml"
+
+  # ── Ignore patterns ────────────────────────────────────────────────────────
+  fn_ignore_dirs:
+    - "megahit_output"
+    - "R_library"
+    - "org.My.eg.db"
+    - ".snakemake"
+
+  fn_ignore_files:
+    - "*.sra"
+    - "*.bam"
+    - "*.sam"
+    - "merged_R*.fastq.gz"
+
+
+# =============================================================================
+# Downstream Analysis
+# =============================================================================
+# heatmap_min_sum: functional categories with total TPM below this
+#   threshold are excluded from the upregulated genes heatmap.
+# top_n_kaiju: number of top phyla to show in the per-sample
+#   community composition bar plot (Section 6 of downstream analysis).
+downstream_heatmap_min_sum: 50
+downstream_top_n_kaiju:     15
+
+
+# =============================================================================
+# Constrained_ordination:
+# =============================================================================
+constrained_ordination:
+  enabled: true
+  variables: ["contaminant", "season", "country"]
+  distance: "bray"
+  conditioned:
+    - "country:season"
+    - "country:contaminant"
+  permutations: 999
+  
+  
+# =============================================================================
+# Resistance
+# =============================================================================
+resistance:
+  enabled:   true
+  card_json:  "{base_dir}/databases/card/card.json"
+  bacmet_exp: "{base_dir}/databases/bacmet/BacMet2_EXP_database.fasta"
+  bacmet_map: "{base_dir}/databases/bacmet/BacMet2_EXP.753.mapping.txt"
+  min_pid:   80
+  min_qcov:  80
+  evalue:    "1e-10"
+  rgi_keep:  "Perfect,Strict"
+  rgi_env_name:  "metores-rgi"
+  heatmap_top_n: 50
+  
+  
+resistome_summary_plots:
+  enabled: true
+  top_n: 10   # optional; this is already the default
+
+# =============================================================================
+# Chemical analysis
+# =============================================================================
+chemical:
+  enabled: true
+  xlsx_file: "{base_dir}/samplesheets/MOBILES_env_matrix_BCR.xlsx"
+  sheet: "env_matrix_R"
+  rename_map: "CY_:CYP_"
+  fractions: "I:bioavailable,II:reducible,III:oxidizable,IV:residual,PT:pseudototal"
+  fraction: "bioavailable"
+  correlation_method: "spearman"
+  envfit_permutations: 999
+
+
+# =============================================================================
+# Bioindicator discovery — partial correlation (ppcor)
+# =============================================================================
+bioindicators:
+  enabled: true
+  fraction: "bioavailable"
+  covariates: "season country"   # includes group_col here on purpose — ppcor has no random-effects
+                                # mechanism, so any dominant grouping variable needs to go in as a
+                                # regular covariate instead, or its signal can masquerade as chemistry
+  transform: "log10_zscore"
+  top_var_genes: 2000
+  method: "spearman"
+  r_threshold: 0.6
+  padj_threshold: 0.05
+
+bioindicator_venn:
+  enabled: true
+  elements: "Cu Co Cd Ni Pb"   # optional override; this is already the default
+
+# =============================================================================
+# MaAsLin2 — element ~ expression, one element per model
+# =============================================================================
+maaslin2:
+  enabled: true
+  rscript_bin: "Rscript"
+  fraction: "bioavailable"
+  elements: ""                 # "" = all 19
+  random_effects: "country"      # grouping/batch variables absorbed as random effects; safe to include group_col here, since MaAsLin2 tests each element's effect independent of it
+  fixed_covariates: "season"
+  transform: "log10_zscore"
+  top_var_genes: 2000
+  max_significance: 0.05
+
+
+coselection_heatmap:
+  enabled: true
+  top_n: 20            # optional; this is already the default
+  envfit_alpha: 0.05    # optional; this is already the default
+  corr_alpha: 0.05       # optional; this is already the default
+
+
+qc_warnings:
+  max_duplication_pct: 75
+  max_rrna_pct: 15
+  min_salmon_mapped_pct: 20

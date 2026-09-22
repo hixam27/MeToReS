@@ -1,0 +1,57 @@
+# =============================================================================
+# MeToReS .gitignore
+# =============================================================================
+
+# ── Large / generated reference databases ────────────────────────────────
+# NOTE: databases/bacmet/, databases/cog_funclass.tab, and
+# databases/trimmomatic_adapters/ are intentionally NOT ignored — they are
+# small, permissively licensed, and bundled directly in the repo (see
+# installation/setup_databases.sh for why the ones below are excluded
+# instead: size, or in CARD's case, licensing).
+databases/kaiju/*
+!databases/kaiju/.gitkeep
+databases/card/*
+!databases/card/.gitkeep
+databases/eggnog-mapper/*
+!databases/eggnog-mapper/.gitkeep
+databases/sortmerna/*
+!databases/sortmerna/.gitkeep
+
+# ── Raw / downloaded sequencing reads ────────────────────────────────────
+fastq/*
+!fastq/.gitkeep
+
+# ── Pipeline outputs ──────────────────────────────────────────────────────
+results/*
+!results/.gitkeep
+
+results_Poland/*
+!results_Poland/.gitkeep
+
+# ── Logs ───────────────────────────────────────────────────────────────────
+logs/*
+!logs/.gitkeep
+*.log
+
+# ── Snakemake internals ───────────────────────────────────────────────────
+.snakemake/
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# ── R ──────────────────────────────────────────────────────────────────────
+.Rhistory
+.RData
+.Rproj.user/
+
+# ── OS / editor cruft ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ── Conda (environments themselves are never committed) ─────────────────
+.conda/

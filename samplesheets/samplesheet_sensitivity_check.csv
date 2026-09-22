@@ -1,0 +1,12 @@
+sample,sra,country,season,contaminant,deseq2_group
+PL_S_1,Unknown_CR215-S02-001T0001,Poland,spring,Heavy_metals,Poland
+FR_S_1,Unknown_CR215-S02-001T0002,France,spring,Antibiotics_pesticides,France
+GER_S_2,Unknown_CR215-S02-001T0003,Germany,spring,Heavy_metals,Germany
+IT_S_2,Unknown_CR215-S02-001T0005,Italy,spring,Heavy_metals,Italy
+GR_S_1_3,Unknown_CR215-S02-001T0006,Greece,spring,Natural,Greece_Natural
+GR_S_2_3,Unknown_CR215-S02-001T0007,Greece,spring,Antibiotics_pesticides,Greece_contaminant
+FR_A_3,Unknown_CR215-S02-001T0009,France,fall,Antibiotics_pesticides,France
+GER_A_2,Unknown_CR215-S02-001T0010,Germany,fall,Heavy_metals,Germany
+CYP_A_3,Unknown_CR215-S02-001T0011,Cyprus,fall,Microplastics,Cyprus
+IT_A_2,Unknown_CR215-S02-001T0012,Italy,fall,Heavy_metals,Italy
+GR_A_1_3,Unknown_CR215-S02-001T0013,Greece,fall,Natural,Greece_Natural
