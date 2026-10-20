@@ -1,0 +1,410 @@
+# =============================================================================
+# MeToReS — configuration
+# =============================================================================
+# Template for your own run. Before the first run, adapt at least:
+#   samplesheet, group_col / ref_level, deseq2.formula, and, for each optional
+#   module you switch on, its variables. See the README (Configuration).
+# All paths use {base_dir}, the folder where the repository was cloned.
+
+# =============================================================================
+# Grouping variable
+# =============================================================================
+group_col: "group"     # samplesheet column with your main grouping (e.g. site, treatment)
+ref_level: "control"   # level of group_col used as the reference in DESeq2
+
+# =============================================================================
+# Input / Output
+# =============================================================================
+samplesheet: "{base_dir}/samplesheets/samplesheet_template.csv"   # replace with your own samplesheet
+output_dir:  "{base_dir}/results"
+fastq_dir: "{base_dir}/fastq"
+
+
+# =============================================================================
+# General compute resources
+# =============================================================================
+# Threads are declared per rule in the Snakefile (threads: N) and are scaled
+# down automatically to whatever you pass with --cores. There is no global
+# thread setting here: a single value applied to every job oversubscribes
+# the machine when several jobs run at once.
+
+
+# =============================================================================
+# Raw read QC — Trimmomatic
+# =============================================================================
+phred:          "-phred33"
+adapter_path:   "{base_dir}/databases/trimmomatic_adapters/TruSeq3"
+quality_cutoff: "4:15"
+min_len:        25
+
+
+# =============================================================================
+# rRNA removal — SortMeRNA
+# =============================================================================
+sortmerna:
+  bin:     "sortmerna"
+  db:      "{base_dir}/databases/sortmerna/smr_v4.3_default_db.fasta"
+  idx_dir: "{base_dir}/databases/sortmerna/idx"
+
+
+# =============================================================================
+# Gene catalogue
+# =============================================================================
+# ORFs shorter than this are dropped before pooling and de-duplication.
+# 150 bp (50 aa) removes the shortest fragments while keeping the partial
+# genes that short metatranscriptome contigs produce. 0 disables the filter.
+gene_catalog:
+  min_orf_len: 150
+
+
+# =============================================================================
+# Quantification — Salmon
+# =============================================================================
+# Library type is fixed rather than auto-detected (-l A): auto-detection on a
+# pooled de novo catalogue can be unstable across samples. ISR = inward,
+# stranded, read 1 from the reverse strand (dUTP / Illumina TruSeq Stranded).
+# Change this if your libraries were prepared differently; see
+# https://salmon.readthedocs.io/en/latest/library_type.html
+# A sample prepared differently can be given its own type in an optional
+# samplesheet column 'libtype' (e.g. IU for an unstranded library); empty
+# cells fall back to the value below. Safeguard S2 checks every declared
+# type against Salmon's auto-detection (-l A) on the first probe_reads read
+# pairs of the sample, and warns when they differ.
+salmon:
+  libtype: "ISR"
+  check_libtype: true     # false = skip the auto-detection check
+  probe_reads:   500000   # read pairs used for the check
+
+
+# =============================================================================
+# DESeq2 differential expression
+# =============================================================================
+# Statistical thresholds
+pvalue:       0.05
+fold_change:  2       # Raw fold change — converted to log2 internally
+
+# DESeq2 model
+# Modify the formula to match your experimental design. Examples:
+#   Simple two-group:          "~ group"
+#   With batch correction:     "~ batch + group"
+#   Interaction model:         "~ genotype + treatment + genotype:treatment"
+deseq2:
+  formula:         "~ group"     # 'group' must be the LAST term — DEG_analysis.r uses it to determine the contrast factor
+  min_count:       50     # Min total counts across all samples for pre-filtering
+  # Size-factor estimator: "ratio" (DESeq2's median of ratios), "poscounts" or
+  # "iterate". "ratio" only uses genes counted in every sample — in sparse
+  # metatranscriptomes (often over half of all counts are zero) that is a small,
+  # unrepresentative set. "poscounts" uses each gene's non-zero counts.
+  sf_type:         "poscounts"
+  # Independent filtering: DESeq2 picks the mean-count cutoff that maximises
+  # discoveries. It gives more DEGs, but calls close to that cutoff can change
+  # between runs (small count differences move the cutoff). Set to false for
+  # calls that do not depend on it; every gene passing min_count is then tested.
+  # all_contrasts_summary.csv reports the cutoff and the borderline calls.
+  independent_filtering: true
+  # Optional: a different grouping for DESeq2 only (e.g. a finer split of
+  # group_col). Leave commented to reuse group_col / ref_level.
+  # group_col: "deseq2_group"
+  # ref_level: "control"
+  # ref_level_filter: "treatment:untreated"   # column:value, when ref_level alone is ambiguous
+
+
+# =============================================================================
+# Assembly QC — MetaQUAST + seqkit stats
+# =============================================================================
+assembly_qc:
+  min_contig:    200      # Minimum contig length for MetaQUAST
+  references:    ""       # Comma-separated reference FASTA paths, or "" for reference-free
+  warn_n50:      300      # N50 below this → WARN in summary JSON
+  warn_total_bp: 500000  # Total assembly below this → WARN
+  warn_contigs:  50      # Total contigs below this → WARN
+
+
+# =============================================================================
+# Kaiju taxonomic classification
+# =============================================================================
+kaiju:
+  db:    "{base_dir}/databases/kaiju/progenomes/kaiju_db_progenomes.fmi"
+  nodes: "{base_dir}/databases/kaiju/progenomes/nodes.dmp"
+  names: "{base_dir}/databases/kaiju/progenomes/names.dmp"
+  mem_mb: 110000      # proGenomes index needs ~102 GB loaded; lower only for a smaller index
+  # Taxon whose ORFs are removed before downstream analysis (e.g. host or
+  # plant contamination), or "none". Only meaningful with an index that
+  # contains that taxon: proGenomes is prokaryote-only, so a eukaryotic
+  # filter would never match. For plant/host removal use a
+  # eukaryote-inclusive index such as nr_euk (see setup_databases.sh).
+  taxon_filter: "none"
+  rank:         "phylum"         # Rank for summary plots
+  top_n:        20               # Top N taxa in bar chart
+
+
+# =============================================================================
+# Functional annotation — eggNOG-mapper
+# =============================================================================
+eggnog_db: "{base_dir}/databases/eggnog-mapper"
+dmnd_db:   "{base_dir}/databases/eggnog-mapper/eggnog_proteins.dmnd"
+
+
+# =============================================================================
+# MultiQC
+# =============================================================================
+multiqc:
+  title_fastqc: "MeToReS — FastQC Quality Report"
+  title_final:  "MeToReS — Full Pipeline QC Report"
+
+  # ── Report appearance ──────────────────────────────────────────────────────
+  subtitle:  "Assembly | DESeq2 | eggNOG | Kaiju"
+  intro_text: >
+    Quality control report for the MeToReS metatranscriptomics pipeline.
+    Covers raw read QC, adapter trimming, rRNA removal, assembly metrics,
+    taxonomic classification, and gene expression quantification.
+
+  export_plots:  true
+  make_data_dir: true
+  zip_data_dir:  false
+
+  # ── Module order ───────────────────────────────────────────────────────────
+  module_order:
+    - fastqc:
+        name: "FastQC (raw reads)"
+        info: "Quality metrics on raw paired-end FASTQ files."
+        path_filters:
+          - "*_qc/*fastqc*"
+    - trimmomatic:
+        name: "Trimmomatic"
+        info: "Adapter trimming and quality filtering."
+        path_filters:
+          - "*_trimmomatic.log"
+    - sortmerna:
+        name: "SortMeRNA (rRNA removal)"
+        info: "Ribosomal RNA filtering from trimmed reads."
+        path_filters:
+          - "*/reads/*/rmrRNA/*"
+    - kaiju:
+        name: "Kaiju (read-level taxonomy)"
+        info: "Per-sample read classification (kaiju2table summaries)."
+        path_filters:
+          - "*_kaiju_summary.tsv"
+    - salmon:
+        name: "Salmon (quantification)"
+        info: "Quasi-mapping quantification against co-assembled gene catalog."
+        path_filters:
+          - "*_quant/*"
+    - custom_content:
+        name: "Assembly QC + Kaiju"
+        info: "MetaQUAST, seqkit stats, and Kaiju taxonomic classification."
+
+  # ── Sample name cleaning ───────────────────────────────────────────────────
+  fn_clean_exts:
+    - "_1_fastqc"
+    - "_2_fastqc"
+    - "_fastqc"
+    - ".fastq.gz"
+    - "_clean_forward_paired"
+    - "_clean_reverse_paired"
+    - "_rmrRNA"
+    - "_trimmomatic"
+    - "_quant"
+
+  # ── General Statistics table ───────────────────────────────────────────────
+  table_columns_visible:
+    FastQC:
+      percent_duplicates:  true
+      percent_gc:          true
+      avg_sequence_length: true
+      total_sequences:     true
+      percent_fails:       false
+    Salmon:
+      percent_mapped:      true
+      num_mapped:          false
+
+  # ── File search patterns ───────────────────────────────────────────────────
+  sp:
+    quast:
+      fn: "report.tsv"
+    custom_content:
+      fn: "*_mqc.yaml"
+
+  # ── Ignore patterns ────────────────────────────────────────────────────────
+  fn_ignore_dirs:
+    - "megahit_output"
+    - "R_library"
+    - "org.My.eg.db"
+    - ".snakemake"
+
+  fn_ignore_files:
+    - "*.fastq.gz"
+    - "*.fq.gz"
+    - "*_kaiju.out"
+    - "*.sra"
+    - "*.bam"
+    - "*.sam"
+    - "merged_R*.fastq.gz"
+
+
+# =============================================================================
+# Downstream Analysis
+# =============================================================================
+# heatmap_min_sum: functional categories with total TPM below this
+#   threshold are excluded from the upregulated genes heatmap.
+# top_n_kaiju: number of top phyla to show in the per-sample
+#   community composition bar plot (Section 6 of downstream analysis).
+downstream_heatmap_min_sum: 50
+downstream_top_n_kaiju:     15
+
+
+# =============================================================================
+# Constrained_ordination:
+# =============================================================================
+constrained_ordination:
+  enabled: false
+  variables: ["group"]          # samplesheet columns tested, e.g. ["treatment", "season", "site"]
+  distance: "bray"
+  conditioned: []               # optional "test:control" pairs, e.g. ["site:season"]
+  permutations: 999
+
+  
+# =============================================================================
+# Resistance
+# =============================================================================
+resistance:
+  enabled:   true
+  card_json:  "{base_dir}/databases/card/card.json"
+  bacmet_exp: "{base_dir}/databases/bacmet/BacMet2_EXP_database.fasta"
+  bacmet_map: "{base_dir}/databases/bacmet/BacMet2_EXP.753.mapping.txt"
+  min_pid:   80
+  min_qcov:  80
+  evalue:    "1e-10"
+  rgi_keep:  "Perfect,Strict"
+  # CARD model types counted as ARG calls. Variant / overexpression / rRNA
+  # models require specific mutations that a homology screen cannot confirm;
+  # their hits go to card_annotations_other_models.tsv instead.
+  rgi_models: "protein homolog model"
+  # Minimum % identity to the CARD reference on top of CARD's curated
+  # per-model Strict/Perfect cut-offs. 0 = rely on the curated cut-offs
+  # (recommended); 80 = high-identity sensitivity check. BacMet keeps its
+  # own identity floor (min_pid) because it has no curated per-model cut-offs.
+  rgi_min_pident: 0
+  rgi_env_name:  "metores-rgi"
+  heatmap_top_n: 50
+  # A resistance category is tested against chemistry only if it is detected
+  # in at least this many samples; resistome_coverage.csv reports the same floor.
+  min_detected_samples: 4
+  
+  
+resistome_summary_plots:
+  enabled: true
+  top_n: 10
+
+# =============================================================================
+# Chemical analysis
+# =============================================================================
+# Measured numeric variables (element concentrations, pH, nutrients...) in a
+# workbook: one row per sample, a SampleID column matching the samplesheet,
+# and one column per variable named Variable_Suffix (e.g. Cu_I, Cu_PT).
+chemical:
+  enabled: false
+  xlsx_file: "{base_dir}/samplesheets/chemistry_template.xlsx"
+  sheet: ""                    # "" = first sheet
+  rename_map: ""               # optional sample-name prefix fixes, e.g. "CY_:CYP_"
+  fractions: "I:bioavailable,PT:pseudototal"   # suffix:name pairs present in the workbook
+  fraction: "bioavailable"     # the one used by the downstream analyses
+  correlation_method: "spearman"
+  envfit_permutations: 999
+
+
+# =============================================================================
+# Bioindicator discovery — partial correlation (ppcor)
+# =============================================================================
+bioindicators:
+  enabled: false
+  fraction: "bioavailable"
+  covariates: "group"          # samplesheet columns controlled for, e.g. "season site". Include the
+                               # main grouping: ppcor has no random effects, so a dominant grouping
+                               # left out can masquerade as a variable effect
+  transform: "log10_zscore"
+  top_var_genes: 2000
+  method: "spearman"
+  r_threshold: 0.6
+  padj_threshold: 0.05
+
+bioindicator_venn:
+  enabled: false
+  elements: ""                 # "" = every variable with hits; or a list, e.g. "Cu Zn Pb"
+
+# =============================================================================
+# MaAsLin2 — element ~ expression, one element per model
+# =============================================================================
+maaslin2:
+  enabled: false
+  rscript_bin: "Rscript"
+  fraction: "bioavailable"
+  elements: ""                 # "" = every variable in the selected fraction
+  random_effects: "group"      # grouping/batch columns absorbed as random effects (e.g. "site")
+  fixed_covariates: ""         # optional fixed covariates (e.g. "season"); use sparingly at low n
+  transform: "log10_zscore"
+  top_var_genes: 2000
+  max_significance: 0.05
+  min_samples: 10                # skip an element measured in fewer samples than this...
+  min_fraction: 0.7              # ...or in fewer than this fraction of samples (stricter applies);
+                                 # skipped elements are listed in maaslin2_elements_tested.tsv
+  combine_fdr: true              # BH across all elements (true) or MaAsLin2's per-element q-values (false)
+
+
+coselection_heatmap:
+  enabled: false               # needs resistance and chemical
+  top_n: 20                 # most abundant ARG/MRG families shown
+  element_selection: all    # all | padj | pvalue: which elements to show
+                            # (padj/pvalue select on envfit; pvalue is exploratory)
+  envfit_alpha: 0.05        # envfit cut-off when element_selection is padj or pvalue
+  annotate_on: padj         # padj | pvalue: correlation p-value behind the "*" marks
+  corr_alpha: 0.05          # cut-off for the "*" marks
+
+
+qc_warnings:
+  max_duplication_pct: 75
+  max_rrna_pct: 15
+  min_salmon_mapped_pct: 20
+
+
+# =============================================================================
+# Safeguards (S1–S4)
+# =============================================================================
+# Checks for patterns that, with few samples per group, can make site or
+# sample differences look like biological effects. Results are collected in
+# results/safeguards/SAFEGUARDS_SUMMARY.md and flagged in the log as
+# SAFEGUARD_WARNING lines. All of them report only and change no result,
+# except the S1 prevalence filter (on by default), which decides which genes
+# MaAsLin2 and partial correlation test.
+safeguards:
+  enabled: true
+
+  # S2 — low-complexity libraries: genes detected, ORFs assembled and reads
+  # mapped per sample, compared with the run median.
+  library_complexity:
+    warn_fraction_of_median: 0.25
+
+  # S1 — prevalence filter for the gene-level association modules (MaAsLin2,
+  # partial correlation). A gene is tested if it is detected (abundance > 0)
+  # in at least min_fraction of all samples, OR in at least min_in_group
+  # samples of one group. The group arm keeps site-specific genes once sites
+  # have real replicates; with fewer replicates per group than min_in_group
+  # only the overall fraction applies. The resistance–chemistry correlation
+  # has its own category-level floor (resistance.min_detected_samples).
+  prevalence:
+    apply_filter: true     # false = test every gene and only report prevalence
+    min_fraction: 0.5      # overall arm
+    min_in_group: 3        # group arm: detected in >= this many samples of one group
+    group_col: null        # null = group_col above
+
+  # S3 — singular random-effect fits behind MaAsLin2 hits.
+  singular_fits:
+    warn_ratio: 2.0        # warn if singular fits are this many times more common among hits
+    within_between: true   # also split each element into between-/within-group parts
+
+  # S4 — assembly-origin enrichment of DESeq2 and MaAsLin2 hit sets.
+  assembly_origin:
+    alpha: 0.05            # BH across all sets and origins in the run
+    min_odds_ratio: 2.0    # flag only when the (matched) odds ratio is at least this
+    matched_null: true     # compare hits with tested genes of the same detection
+                           # count and expression level (false = all tested genes)

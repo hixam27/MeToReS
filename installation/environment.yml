@@ -1,0 +1,90 @@
+# =============================================================================
+# environment.yml — MeToReS main environment
+#
+# Contains everything the pipeline needs EXCEPT RGI/CARD, which is kept in a
+# separate environment (environment-rgi.yml).
+# It's because RGI's own installation docs recommend a
+# dedicated env, since it pins older BLAST/Python internals that conflict
+# with the newer DIAMOND/Salmon-era stack the rest of this pipeline needs.
+#
+# Build with:
+#   conda env create -f environment.yml
+# =============================================================================
+name: metores
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  # ── Core language runtimes ──────────────────────────────────────────────
+  - python=3.11
+  - r-base=4.3
+
+  # ── Raw read QC / trimming / rRNA removal ───────────────────────────────
+  - fastqc
+  - unzip
+  - trimmomatic=0.41
+  - sortmerna=7.0.0
+  - multiqc
+  
+  # ── Read download ──────────────
+  - wget
+  - sra-tools
+
+  # ── Assembly / gene prediction / dereplication ──────────────────────────
+  - megahit
+  - prodigal
+  - cd-hit
+  - seqkit
+
+  # ── Gene catalogue QC (MetaQUAST) ────────────────────────────────────────
+  - quast
+
+  # ── Taxonomic classification ────────────────────────────────────────────
+  - kaiju=1.10.1
+  - krona
+
+  # ── Quantification ──────────────────────────────────────────────────────
+  - salmon=2.3.4
+
+  # ── Functional annotation / sequence search ─────────────────────────────
+  - eggnog-mapper=2.1.13
+  - diamond=2.2.4
+
+  # ── Python scientific stack (samplesheet/matrix handling, chemical parsing) ─
+  - pandas
+  - numpy
+  - biopython
+  - openpyxl
+  - pyyaml
+  - matplotlib
+
+  # ── Workflow manager itself ──────────────────────────────────────────────
+  - snakemake-minimal=9.23.1
+  # ── R: differential expression + import ─────────────────────────────────
+  - bioconductor-deseq2
+  - bioconductor-tximport
+  - r-optparse
+  - r-ggplot2
+  - r-ggrepel
+  - r-dplyr
+  - r-tibble
+  - r-tidyverse
+  - r-stringr
+  - r-rcolorbrewer
+  - r-ape
+
+  # ── R: ordination / correlation / bioindicator discovery ────────────────
+  - r-vegan
+  - r-ppcor
+  - bioconductor-maaslin2
+  - r-lme4
+  - r-lmertest
+  - r-venndiagram
+
+  # ── R: heatmaps / upset plots ─────────────────────────────────────────────
+  - r-pheatmap
+  - r-complexupset
+
+  # ── R: GO term lookup
+  - bioconductor-go.db

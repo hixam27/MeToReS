@@ -1,0 +1,5 @@
+sample,sra,group,season,deseq2_group,libtype
+site1_rep1,site1_rep1,control,spring,control
+site1_rep2,site1_rep2,control,autumn,control
+site2_rep1,site2_rep1,treated,spring,treated
+site2_rep2,site2_rep2,treated,autumn,treated

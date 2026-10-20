@@ -1,0 +1,5 @@
+cluster: "sbatch --mem={resources.mem_mb}M --cpus-per-task={threads} --time={resources.runtime} --output slurm_logs/%j.out --error slurm_logs/%j.err"
+default-resources:
+  mem_mb: 16000          # 16 GB, matches mem_mb units used in rules
+  runtime: 240           # minutes; Snakemake formats this for --time
+  # threads is set per-rule via 'threads:'; default handled by --cores

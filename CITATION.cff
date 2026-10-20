@@ -1,0 +1,41 @@
+cff-version: 1.2.0
+message: "If you use MeToReS, please cite it as below."
+title: "MeToReS: Metatranscriptomics Toward Ecosystem Responses"
+version: 1.0.0
+date-released: 2026-10-20
+type: software
+authors:
+  - given-names: Hicham
+    family-names: Klaina
+    affiliation: "Public University of Navarre, Pamplona, Spain"
+  - given-names: Lorenzo
+    family-names: Pin
+    affiliation: "Institute for Agriculture and Forestry Systems in the Mediterranean (ISAFoM), National Research Council of Italy (CNR), Catania, Italy"
+  - given-names: Anna
+    family-names: Marzec-Grządziel
+    affiliation: "Institute of Soil Science and Plant Cultivation – State Research Institute, Puławy, Poland"
+  - given-names: Francisco
+    family-names: Falcone
+    affiliation: "Public University of Navarre, Pamplona, Spain"
+  - given-names: Giuseppe Diego
+    family-names: Puglia
+    affiliation: "Institute for Agriculture and Forestry Systems in the Mediterranean (ISAFoM), National Research Council of Italy (CNR), Catania, Italy"
+  - given-names: Jose Javier
+    family-names: Astrain
+    affiliation: "Public University of Navarre, Pamplona, Spain"
+repository-code: "https://github.com/hixam27/MeToReS"
+license: MIT
+abstract: >-
+  MeToReS is a Snakemake pipeline for soil and environmental
+  metatranscriptomics: per-sample assembly, a pooled non-redundant gene
+  catalogue, taxonomic classification, differential expression, functional
+  and antimicrobial/metal resistome annotation, and integration with
+  environmental chemistry, with built-in safeguards for studies with few
+  replicates.
+keywords:
+  - metatranscriptomics
+  - Snakemake
+  - pipeline
+  - soil
+  - resistome
+  - environmental chemistry
