@@ -84,7 +84,7 @@ dependencies:
   - entrez-direct=22.4
   - et_xmlfile=2.0.0
   - expat=2.8.1
-  - fastqc=0.13.0
+  - fastqc=0.12.1
   - font-ttf-dejavu-sans-mono=2.37
   - font-ttf-inconsolata=3.000
   - font-ttf-source-code-pro=2.038

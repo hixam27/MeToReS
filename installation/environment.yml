@@ -21,7 +21,7 @@ dependencies:
   - r-base=4.3
 
   # ── Raw read QC / trimming / rRNA removal ───────────────────────────────
-  - fastqc
+  - fastqc=0.12.1
   - unzip
   - trimmomatic=0.41
   - sortmerna=7.0.0

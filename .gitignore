@@ -69,3 +69,4 @@ validation/
 samplesheets/*
 !samplesheets/samplesheet_template.csv
 !samplesheets/chemistry_template.xlsx
+config/mobiles.yaml
