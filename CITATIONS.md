@@ -9,6 +9,13 @@ databases that your specific run actually used, in addition to MeToReS
 itself (see the Citation section of the README). Which of these apply
 depends on which optional modules you enabled (see `config/config.yaml`).
 
+## Origin
+
+- **metaTP** — MeToReS started from this workflow. He L, Zou Q, Wang Y.
+  metaTP: a meta-transcriptome data analysis pipeline with integrated
+  automated workflows. BMC Bioinformatics. 2025;26:111.
+  doi:10.1186/s12859-025-06137-w
+
 ## Core pipeline (always used)
 
 - **FastQC** — Andrews S. FastQC: a quality control tool for high throughput
@@ -53,6 +60,9 @@ depends on which optional modules you enabled (see `config/config.yaml`).
 - **DESeq2** — Love MI, Huber W, Anders S. Moderated estimation of fold
   change and dispersion for RNA-seq data with DESeq2. Genome Biol.
   2014;15:550. doi:10.1186/s13059-014-0550-8
+- **ashr** (fold-change shrinkage, `lfcShrink(type = "ashr")`) — Stephens M.
+  False discovery rates: a new deal. Biostatistics. 2017;18(2):275–294.
+  doi:10.1093/biostatistics/kxw041
 - **eggNOG-mapper v2** — Cantalapiedra CP, Hernández-Plaza A, Letunic I,
   Bork P, Huerta-Cepas J. eggNOG-mapper v2: functional annotation,
   orthology assignments, and domain prediction at the metagenomic scale.

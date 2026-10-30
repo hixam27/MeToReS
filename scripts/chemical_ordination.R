@@ -18,6 +18,8 @@ opt <- parse_args(OptionParser(option_list = list(
   make_option("--vst",          type = "character"),
   make_option("--chemical",     type = "character"),
   make_option("--workdir",      type = "character"),
+  make_option("--distance",     type = "character", default = "euclidean",
+              help = "Distance on the VST matrix (euclidean, bray, ...) [default: euclidean]"),
   make_option("--fraction_label", type = "character", default = "bioavailable"),
   make_option("--permutations", type = "integer", default = 999)
 )))
@@ -60,17 +62,19 @@ cat("Elements retained (non-zero variance):", ncol(chem_mat), "\n")
 # ── Part 1: envfit onto a PCoA of gene expression ───────────────────
 cat("\n=== envfit: chemical vectors on expression PCoA ===\n")
 
-# Bray-Curtis requires non-negative data. VST output can be slightly
-# negative for very low counts — shift to non-negative before computing
-# the distance matrix (same approach used in constrained_ordination.R).
+# Euclidean distance on the VST matrix by default (same as the db-RDA).
+# Bray-Curtis needs non-negative data and VST output can be slightly negative
+# for very low counts, so with "bray" the matrix is shifted first (same
+# approach as constrained_ordination.R).
+cat("Distance:", opt$distance, "\n")
 comm_for_dist <- comm
-if (min(comm_for_dist) < 0) {
+if (opt$distance == "bray" && min(comm_for_dist) < 0) {
   shift <- abs(min(comm_for_dist))
   comm_for_dist <- comm_for_dist + shift
   cat("Note: VST had negative values; shifted by", round(shift, 3),
       "for Bray-Curtis\n")
 }
-dist_mat <- vegdist(comm_for_dist, method = "bray")
+dist_mat <- vegdist(comm_for_dist, method = opt$distance)
 pcoa_res <- pcoa(dist_mat)
 scores   <- as.data.frame(pcoa_res$vectors[, 1:2])
 colnames(scores) <- c("Axis1", "Axis2")

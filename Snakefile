@@ -123,7 +123,7 @@ constrained_dir = f"{output_dir}/constrained_ordination_{GROUP_COL}"
 CO_CONFIG       = config.get("constrained_ordination", {})
 CO_ENABLED      = CO_CONFIG.get("enabled", False)
 CO_VARIABLES    = CO_CONFIG.get("variables", [])
-CO_DISTANCE     = CO_CONFIG.get("distance", "bray")
+CO_DISTANCE     = CO_CONFIG.get("distance", "euclidean")   # also used by envfit (chemical_ordination)
 CO_CONDITIONED  = CO_CONFIG.get("conditioned", [])
 CO_PERMUTATIONS = CO_CONFIG.get("permutations", 999)
 
@@ -1671,7 +1671,8 @@ rule chemical_ordination:
         vst      = lambda wildcards: os.path.abspath(f"{DEG_RESULTS}/vst_normalised_counts.csv"),
         chemical = lambda wildcards: os.path.abspath(f"{chemical_dir}/chemical_data_{CHEM_FRACTION}.csv"),
         fraction = CHEM_FRACTION,
-        perms    = CHEM_CONFIG.get("envfit_permutations", 999)
+        perms    = CHEM_CONFIG.get("envfit_permutations", 999),
+        distance = CO_DISTANCE
     resources:
         mem_mb = 8000, runtime = 30
     threads: 2
@@ -1683,7 +1684,8 @@ rule chemical_ordination:
             --chemical       {params.chemical} \
             --workdir        {params.workdir} \
             --fraction_label {params.fraction} \
-            --permutations   {params.perms}
+            --permutations   {params.perms} \
+            --distance       {params.distance}
         """
 
 

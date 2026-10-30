@@ -63,6 +63,7 @@ dependencies:
   - snakemake-minimal=9.23.1
   # ── R: differential expression + import ─────────────────────────────────
   - bioconductor-deseq2
+  - r-ashr
   - bioconductor-tximport
   - r-optparse
   - r-ggplot2

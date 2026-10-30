@@ -95,9 +95,13 @@ for r in by.get("S3_singular_fits", []):
         continue
     if r.get("warning"):
         n_flags += 1
-    L += [f"- Singular fits ({r['random_effects']} variance estimated at 0): "
-          f"**{r['pct_singular_all']}%** of all tests, **{r['pct_singular_hits']}%** of hits "
-          f"({r['n_hits_singular']}/{r['n_hits']}); ratio {r['ratio_hits_vs_all']}."]
+    if r.get("n_hits"):
+        L += [f"- Singular fits ({r['random_effects']} variance estimated at 0): "
+              f"**{r['pct_singular_all']}%** of all tests, **{r['pct_singular_hits']}%** of hits "
+              f"({r['n_hits_singular']}/{r['n_hits']}); ratio {r['ratio_hits_vs_all']}."]
+    else:
+        L += [f"- Singular fits ({r['random_effects']} variance estimated at 0): "
+              f"**{r['pct_singular_all']}%** of all tests; no hits, so no hit share to compare."]
     if not r.get("refit_reliable", True):
         L += [f"- Note: the refit did not reproduce MaAsLin2's p-values "
               f"(rho = {r['refit_spearman_rho']}); treat these figures with caution."]

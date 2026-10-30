@@ -301,6 +301,12 @@ option of Snakemake ≤ 7; with Snakemake ≥ 8 (the version pinned here),
 cluster execution goes through an executor plugin — see the
 [Snakemake documentation](https://snakemake.readthedocs.io/en/stable/executing/cluster.html).
 
+**Very large libraries.** For libraries above roughly 150 million read pairs,
+SortMeRNA's working database can hold about a thousand files and exceed the
+default limit of 1,024 open files per process ("Could not open output file …
+for writing"). Raise the limit in the shell that starts Snakemake, for example
+`ulimit -n 65536` (up to the value shown by `ulimit -Hn`).
+
 ### Re-running a specific rule after editing a script
 
 Snakemake does not track the content of the R/Python scripts, so editing a
@@ -359,6 +365,21 @@ results/
 
 ---
 
+## Origin
+
+MeToReS started from metaTP (He L, Zou Q, Wang Y. *BMC Bioinformatics*
+2025;26:111; https://github.com/nanbei45/metaTP). It keeps metaTP's order of
+the first steps and several rule and script names; the code has since been
+rewritten and extended from 7 to 42 Snakemake rules and from 16 to 128
+configuration settings (metaTP's `Snakefile` and `config.yaml` as of its
+commit 1ab2f9b, March 2025; both were later removed from that repository),
+with a clustered gene catalogue and its quality
+control, count-based differential expression (DESeq2), taxonomic
+classification, library-type checks, the integration layer, the resistome
+module and the safeguards.
+
+---
+
 ## Authors
 
 - **Hicham Klaina**¹
@@ -382,7 +403,7 @@ A manuscript describing MeToReS is in preparation. Until it is published,
 please cite the software:
 
 > Klaina H, Pin L, Marzec-Grządziel A, Falcone F, Puglia GD, Astrain JJ.
-> *MeToReS: Metatranscriptomics Toward Ecosystem Responses* (version 1.0.0)
+> *MeToReS: Metatranscriptomics Toward Ecosystem Responses* (version 1.0.1)
 > [Software]. https://github.com/hixam27/MeToReS
 
 GitHub's "Cite this repository" link (in the "About" box on the right of the

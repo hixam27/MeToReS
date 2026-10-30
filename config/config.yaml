@@ -259,7 +259,8 @@ downstream_top_n_kaiju:     15
 constrained_ordination:
   enabled: false
   variables: ["group"]          # samplesheet columns tested, e.g. ["treatment", "season", "site"]
-  distance: "bray"
+  distance: "euclidean"         # on the VST matrix; also used for the envfit ordination.
+                                # "bray" shifts VST to non-negative values first
   conditioned: []               # optional "test:control" pairs, e.g. ["site:season"]
   permutations: 999
 

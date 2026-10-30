@@ -322,9 +322,9 @@ for (lvl in non_ref_levels) {
 
     n_extreme_before <- sum(abs(res$log2FoldChange) > 15, na.rm=TRUE)
     res <- lfcShrink(dds, contrast=c(main_factor, lvl, opts$ref_level),
-                      type="normal", res=res)
+                      type="ashr", res=res, quiet=TRUE)
     n_extreme_after  <- sum(abs(res$log2FoldChange) > 15, na.rm=TRUE)
-    cat("  log2FC shrinkage applied (type=normal): genes with |log2FC|>15",
+    cat("  log2FC shrinkage applied (type=ashr): genes with |log2FC|>15",
         "went from", n_extreme_before, "to", n_extreme_after, "\n")
 
     cat("  DESeq2 summary for ", contrast_name, ":\n")
