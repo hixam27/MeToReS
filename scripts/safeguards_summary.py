@@ -67,6 +67,16 @@ for r in by.get("S2_library_complexity", []):
         L += [f"- {m['contrast']}: " + "; ".join(f"{g_}: {', '.join(t)}" for g_, t in m["libtypes"].items())
               for m in mixed]
         L += [""]
+    pe = r.get("protein_evidence")
+    if pe:
+        mode = ("only these genes are tested" if pe.get("gene_set") == "coding"
+                else "all filtered genes are tested (`deseq2.gene_set: all`)")
+        L += [f"**Counts in genes with protein-level evidence** ({pe.get('evidence')}; reported, "
+              f"not a flag; {mode}): {pe.get('pct_counts_overall')}% of the filtered-gene counts, "
+              f"{pe.get('pct_counts_min')}-{pe.get('pct_counts_max')}% per sample.", "",
+              "| Sample | % of counts |", "|---|---|"]
+        L += [f"| {s} | {v} |" for s, v in pe.get("per_sample", {}).items()]
+        L += [""]
 
 # S1
 s1 = by.get("S1_prevalence", [])

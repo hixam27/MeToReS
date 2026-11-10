@@ -29,8 +29,9 @@ Pooled non-redundant gene catalog (CD-HIT-EST)
    │
    ├──► Taxonomic classification (Kaiju, proGenomes)
    ├──► Quantification (Salmon)
-   ├──► Differential expression (DESeq2, multi-contrast)
    ├──► Functional annotation (eggNOG-mapper)
+   ├──► Gene selection: genes with protein-level evidence (deseq2.gene_set)
+   ├──► Differential expression (DESeq2, multi-contrast)
    │
    ├──► [optional] Constrained ordination (db-RDA, vegan)
    ├──► [optional] Resistance annotation (CARD/RGI + BacMet/DIAMOND)
@@ -109,7 +110,7 @@ conda env create -f installation/environment-rgi.yml
 conda activate metores
 ```
 
-To rebuild exactly the software versions used to validate MeToReS v1.0.0,
+To rebuild exactly the software versions used to validate MeToReS,
 use the lock files instead (Linux 64-bit only):
 
 ```bash
@@ -142,8 +143,10 @@ bash installation/setup_databases.sh
 | SortMeRNA | rRNA removal | ~3 GB |
 | CARD (`card.json`) | antibiotic resistance genes (RGI) | ~52 MB |
 
-CARD is downloaded in its latest release; note the version you used when
-reporting results, since it changes over time.
+CARD is downloaded as the versioned 4.0.1 archive, so every install gets the
+same database. To use another release, set `CARD_VERSION` when running the
+script (e.g. `CARD_VERSION=4.0.2 bash installation/setup_databases.sh`) and
+report the version you used.
 
 ---
 
@@ -173,7 +176,7 @@ only and change no result.
 | Check | What it does |
 |---|---|
 | S1 Prevalence | Filters the genes tested by MaAsLin2 and partial correlation to those detected in ≥ 50 % of samples, or in ≥ 3 samples of one group (`safeguards.prevalence`); reports the detection of every hit |
-| S2 Library complexity and type | Flags samples with far fewer genes detected, ORFs assembled or reads mapped than the run median; checks each declared Salmon library type against auto-detection on a read subsample; flags DESeq2 contrasts that mix library types (also shown in the MultiQC report) |
+| S2 Library complexity and type | Flags samples with far fewer genes detected, ORFs assembled or reads mapped than the run median; checks each declared Salmon library type against auto-detection on a read subsample; flags DESeq2 contrasts that mix library types (also shown in the MultiQC report). Also reports, without flagging, each sample's share of filtered-gene counts in genes with protein-level evidence |
 | S3 Singular fits | Flags MaAsLin2 hits from models whose random effect was estimated at zero, so that the grouping was effectively ignored |
 | S4 Assembly origin | Flags DESeq2 and MaAsLin2 hit sets enriched for genes assembled from one sample or site, compared with tested genes of similar expression and detection |
 
@@ -183,7 +186,8 @@ between-group and within-group variation of each element.
 
 `python tests/test_safeguards.py` runs each safeguard on small synthetic data
 with a known answer and checks that it flags what it should and nothing else
-(about one minute; no databases needed).
+(about one minute; no databases needed). `python tests/test_gene_selection.py`
+checks the gene-set selection (`deseq2.gene_set`) and its reporting.
 
 ---
 
@@ -270,6 +274,7 @@ and `chemical`.
 |---|---|---|
 | `salmon.libtype` | `ISR` | Library type for all samples (stranded dUTP); per-sample override in the samplesheet. Safeguard S2 checks each declared type against Salmon's auto-detection on the first `salmon.probe_reads` (500,000) read pairs (`salmon.check_libtype`) |
 | `gene_catalog.min_orf_len` | `150` | Minimum ORF length (bp) kept in the gene catalogue |
+| `deseq2.gene_set` | `coding` | Genes tested for differential expression and in everything built on it (VST, ordinations, MaAsLin2, partial correlation, downstream summaries, safeguards): `coding` = filtered genes with protein-level evidence (an eggNOG-mapper hit); `all` = every filtered gene (behaviour before v1.1.0). See *Genes tested* below |
 | `deseq2.sf_type` | `poscounts` | DESeq2 size-factor method, suited to sparse metatranscriptomic counts |
 | `deseq2.independent_filtering` | `true` | DESeq2 independent filtering. Set to `false` to test every gene passing `deseq2.min_count`, so calls do not depend on a data-driven cutoff (fewer DEGs). `all_contrasts_summary.csv` reports the cutoff used and the number of borderline calls per contrast |
 | `pvalue` / `fold_change` | `0.05` / `2` | Thresholds for calling differentially expressed genes |
@@ -280,6 +285,18 @@ and `chemical`.
 | `safeguards.prevalence.apply_filter` | `true` | Test in MaAsLin2 and partial correlation only genes detected in ≥ 50 % of samples, or in ≥ 3 samples of one group |
 | `coselection_heatmap.element_selection` | `all` | Show all elements; `padj` or `pvalue` show only elements significant in envfit |
 | `qc_warnings` | — | Thresholds for informational `QC_WARNING` messages (duplication, rRNA, mapping rate); never change results |
+| `sortmerna.db` | `smr_v4.3_default_db.fasta` | rRNA reference for SortMeRNA. For total-RNA libraries with residual rRNA, `smr_v4.3_sensitive_db.fasta` (installed with the default one) can be set, with its own `sortmerna.idx_dir` |
+
+**Genes tested.** A de novo catalogue also holds open reading frames that
+Prodigal predicts on non-coding RNA (rRNA, tRNA/tmRNA, other ncRNAs) and on
+library artefacts. In total-RNA libraries these can carry most of the counts
+of the filtered genes, and many of them would be called differentially
+expressed. By default (`deseq2.gene_set: "coding"`), only filtered genes with
+an eggNOG-mapper hit enter DESeq2 and the analyses built on it; the catalogue
+itself stays reference-free. `PIPELINE_SUMMARY.md` always reports the share of
+filtered genes and of their counts that have protein-level evidence (also per
+sample in `SAFEGUARDS_SUMMARY.md`); with `gene_set: "all"` it also reports the
+share of DEGs per contrast that are annotated.
 
 ---
 
@@ -305,7 +322,8 @@ cluster execution goes through an executor plugin — see the
 SortMeRNA's working database can hold about a thousand files and exceed the
 default limit of 1,024 open files per process ("Could not open output file …
 for writing"). Raise the limit in the shell that starts Snakemake, for example
-`ulimit -n 65536` (up to the value shown by `ulimit -Hn`).
+`ulimit -n 65536` (up to the value shown by `ulimit -Hn`). MeToReS prints a
+warning at start when the limit is below 4,096.
 
 ### Re-running a specific rule after editing a script
 
@@ -403,7 +421,7 @@ A manuscript describing MeToReS is in preparation. Until it is published,
 please cite the software:
 
 > Klaina H, Pin L, Marzec-Grządziel A, Falcone F, Puglia GD, Astrain JJ.
-> *MeToReS: Metatranscriptomics Toward Ecosystem Responses* (version 1.0.1)
+> *MeToReS: Metatranscriptomics Toward Ecosystem Responses* (version 1.1.0)
 > [Software]. https://github.com/hixam27/MeToReS
 
 GitHub's "Cite this repository" link (in the "About" box on the right of the

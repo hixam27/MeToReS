@@ -26,8 +26,9 @@
 #                (github.com/bioinformatics-centre/kaiju/issues/273). This
 #                script downloads the official PRE-BUILT index instead (AWS
 #                S3, Open Data Sponsorship Program).
-#   CARD       : https://card.mcmaster.ca/latest/data — CARD's stable
-#                "always latest" download endpoint. NOTE: CARD's terms restrict *commercial*
+#   CARD       : the versioned CARD data archive (CARD_VERSION below, 4.0.1),
+#                so every install gets the same database; set CARD_VERSION
+#                to use another release. NOTE: CARD's terms restrict *commercial*
 #                reproduction of the data; research/non-commercial use is
 #                unrestricted. See https://card.mcmaster.ca/about. This is
 #                also why CARD is fetched here rather than bundled in git —
@@ -105,14 +106,16 @@ fi
 # =============================================================================
 if [ -z "${SKIP_CARD:-}" ]; then
     echo ""
-    echo "[2/4] CARD..."
+    CARD_VERSION="${CARD_VERSION:-4.0.1}"
+    echo "[2/4] CARD ${CARD_VERSION}..."
     mkdir -p "${DB_DIR}/card"
     (
         cd "${DB_DIR}/card" && \
-        wget -q -O card-data.tar.bz2 https://card.mcmaster.ca/latest/data && \
+        wget -q -O card-data.tar.bz2 \
+            "https://card.mcmaster.ca/download/0/broadstreet-v${CARD_VERSION}.tar.bz2" && \
         tar -xjf card-data.tar.bz2 && \
         rm -f card-data.tar.bz2
-    ) && echo "      card.json ready in ${DB_DIR}/card/" \
+    ) && echo "      card.json (CARD ${CARD_VERSION}) ready in ${DB_DIR}/card/" \
       || { echo "      FAILED — check network access to card.mcmaster.ca"; FAILED="${FAILED} card"; }
 else
     echo "[2/4] CARD: skipped (SKIP_CARD set)"

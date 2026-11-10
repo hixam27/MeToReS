@@ -27,6 +27,18 @@ def resolve_path(value):
 
 config = resolve_path(config)
 
+# SortMeRNA keeps about 1,000 files open on libraries above ~150 M read pairs;
+# with the common default limit of 1,024 it fails with "Could not open output
+# file". Warn early; raise the limit with `ulimit -n 65536` before running.
+try:
+    import resource
+    _nofile = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
+    if _nofile != resource.RLIM_INFINITY and _nofile < 4096:
+        print(f"WARNING: the open-files limit is {_nofile}. SortMeRNA can need more on large "
+              f"libraries; run `ulimit -n 65536` before snakemake (see README).", file=sys.stderr)
+except (ImportError, ValueError, OSError):
+    pass
+
 
 R_DESEQ2         = f"{SCRIPTS_DIR}/DEG_analysis.r"
 R_FILTER         = f"{SCRIPTS_DIR}/filter_genes.R"
@@ -37,6 +49,7 @@ PY_ASSEMBLY_QC   = f"{SCRIPTS_DIR}/assembly_qc.py"
 PY_KAIJU         = f"{SCRIPTS_DIR}/kaiju_process.py"
 PY_MERGE_TAX     = f"{SCRIPTS_DIR}/merge_taxonomy.py"
 PY_PIPELINE_SUMMARY = f"{SCRIPTS_DIR}/generate_pipeline_summary.py"
+PY_SELECT_GENES  = f"{SCRIPTS_DIR}/select_coding_genes.py"
 
 if not os.path.exists(config["samplesheet"]):
     sys.exit(
@@ -74,6 +87,11 @@ if GROUP_COL not in samples_df.columns:
 DESEQ2_CONFIG   = config.get("deseq2", {})
 DESEQ_GROUP_COL = DESEQ2_CONFIG.get("group_col") or GROUP_COL
 DESEQ_REF_LEVEL = DESEQ2_CONFIG.get("ref_level") or config.get("ref_level")
+# Genes tested: "coding" = filtered genes with an eggNOG-mapper hit (default);
+# "all" = every filtered gene (behaviour before v1.1.0).
+DESEQ_GENE_SET  = str(DESEQ2_CONFIG.get("gene_set", "coding")).lower()
+if DESEQ_GENE_SET not in ("coding", "all"):
+    raise ValueError(f"ERROR: deseq2.gene_set must be \"coding\" or \"all\", not {DESEQ_GENE_SET!r}")
 
 if DESEQ_GROUP_COL not in samples_df.columns:
     raise ValueError(
@@ -114,6 +132,11 @@ deg_dir          = f"{output_dir}/deg"
 emapper_dir      = f"{output_dir}/emapper_{GROUP_COL}"
 downstream_dir   = f"{output_dir}/downstream_{GROUP_COL}"
 DEG_RESULTS      = f"{deg_dir}/{GROUP_COL}_deg_results"
+# Matrix of the genes that enter DESeq2 and everything built on it (VST,
+# ordinations, MaAsLin2, partial correlation, downstream summaries, S1-S4).
+FILTER_MATRIX    = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv"
+TESTED_MATRIX    = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter_coding.csv"
+GENE_SET_JSON    = f"{DEG_RESULTS}/gene_set_summary.json"
 
 CLEAN_FASTQ1 = f"{reads_dir}/{{sra}}/rmrRNA/{{sra}}_rmrRNA.fastq.1.gz"
 CLEAN_FASTQ2 = f"{reads_dir}/{{sra}}/rmrRNA/{{sra}}_rmrRNA.fastq.2.gz"
@@ -238,7 +261,7 @@ R_SG_SING      = f"{SCRIPTS_DIR}/safeguard_singular_fits.R"
 PY_SG_AO       = f"{SCRIPTS_DIR}/safeguard_assembly_origin.py"
 PY_SG_SUMMARY  = f"{SCRIPTS_DIR}/safeguards_summary.py"
 # The matrix whose genes feed DESeq2 / VST, used for detection counts.
-SG_MATRIX      = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv"
+SG_MATRIX      = TESTED_MATRIX
 # Grouping used to summarise the origin of MaAsLin2 hits: its first random
 # effect if that is a samplesheet column, otherwise group_col.
 _ml_re = (ML_CONFIG.get("random_effects") or "").split()
@@ -958,7 +981,7 @@ rule filter_genes:
         samplesheet = config["samplesheet"]
     output:
         raw_matrix      = f"{DEG_RESULTS}/transcript_abundance_quantification_table.csv",
-        filtered_matrix = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv"
+        filtered_matrix = FILTER_MATRIX
     params:
         quant_dir  = quant_dir,
         output_dir = DEG_RESULTS,
@@ -992,9 +1015,41 @@ rule filter_genes:
         """
 
 
+# Genes that enter DESeq2 (deseq2.gene_set). "coding" keeps the filtered genes
+# with protein-level evidence (an eggNOG-mapper hit); "all" copies the filtered
+# matrix, so the DAG is the same in both modes. The JSON reports the share of
+# genes and counts with protein-level evidence in either mode.
+rule select_coding_genes:
+    input:
+        filtered_matrix = FILTER_MATRIX,
+        annotations     = f"{emapper_dir}/all_genes_emapper.emapper.annotations",
+        quant_files     = expand(f"{quant_dir}/{{sra}}_quant/quant.sf", sra=SRAS),
+        samplesheet     = config["samplesheet"]
+    output:
+        matrix  = TESTED_MATRIX,
+        summary = GENE_SET_JSON
+    params:
+        gene_set = DESEQ_GENE_SET
+    resources:
+        mem_mb  = 16000,
+        runtime = 60
+    threads: 1
+    shell:
+        """
+        python {PY_SELECT_GENES} \
+            --matrix      {input.filtered_matrix} \
+            --annotations {input.annotations} \
+            --samplesheet {input.samplesheet} \
+            --quant_dir   {quant_dir} \
+            --gene_set    {params.gene_set} \
+            --out_matrix  {output.matrix} \
+            --out_json    {output.summary}
+        """
+
+
 rule merge_taxonomy:
     input:
-        filtered_matrix = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv",
+        filtered_matrix = TESTED_MATRIX,
         gene_taxonomy   = f"{kaiju_dir}/kaiju_gene_taxonomy.tsv"
     output:
         annotated_matrix = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter_taxonomy.csv",
@@ -1019,7 +1074,7 @@ rule merge_taxonomy:
 
 rule DEG_analysis:
     input:
-        filtered_matrix = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv",
+        filtered_matrix = TESTED_MATRIX,
         quant_files     = expand(
             f"{quant_dir}/{{sra}}_quant/quant.sf", sra=SRAS
         ),
@@ -1126,7 +1181,7 @@ rule DEG_analysis:
 rule emapper_all_genes:
     input:
         reference       = f"{catalog_dir}/all_longest_orfs_cds_rmdup_id.fasta",
-        filtered_matrix = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv"
+        filtered_matrix = FILTER_MATRIX
     output:
         annotations = f"{emapper_dir}/all_genes_emapper.emapper.annotations"
     params:
@@ -1232,7 +1287,7 @@ rule multiqc_final:
 
 rule downstream_analysis:
     input:
-        matrix      = f"{DEG_RESULTS}/transcript_abundance_quantification_table_filter.csv",
+        matrix      = TESTED_MATRIX,
         emapper_all = f"{emapper_dir}/all_genes_emapper.emapper.annotations",
         kaiju_cats  = expand(
             f"{kaiju_dir}/{{sra}}_kaiju_summary.tsv", sra=SRAS
@@ -1264,6 +1319,7 @@ rule downstream_analysis:
     params:
         workdir      = lambda wildcards: os.path.abspath(downstream_dir),
         deg_dir      = lambda wildcards: os.path.abspath(DEG_RESULTS),
+        matrix_name  = os.path.basename(TESTED_MATRIX),
         kaiju_dir    = lambda wildcards: os.path.abspath(kaiju_dir),
         emapper_dir  = lambda wildcards: os.path.abspath(emapper_dir),
         contrasts    = " ".join(CONTRASTS),
@@ -1297,6 +1353,7 @@ PYEOF
         Rscript {R_DOWNSTREAM} \
             --workdir      {params.workdir} \
             --deg_dir      {params.deg_dir} \
+            --matrix       {params.matrix_name} \
             --kaiju_dir    {params.kaiju_dir} \
             --emapper_dir  {params.emapper_dir} \
             --contrasts    "{params.contrasts}" \
@@ -1843,6 +1900,7 @@ rule bioindicator_venn:
 rule pipeline_summary:
     input:
         f"{assembly_qc_dir}/assembly_qc_summary.json",
+        GENE_SET_JSON,
         f"{kaiju_dir}/kaiju_summary.json",
         f"{DEG_RESULTS}/all_contrasts_summary.csv",
         f"{multiqc_dir}/final/multiqc_report.html",
@@ -1855,7 +1913,8 @@ rule pipeline_summary:
         summary = f"{output_dir}/PIPELINE_SUMMARY.md"
     params:
         results_dir = lambda w: os.path.abspath(output_dir),
-        group_col   = GROUP_COL
+        group_col   = GROUP_COL,
+        gene_set_json = lambda w: os.path.abspath(GENE_SET_JSON)
     resources:
         mem_mb = 4000, runtime = 15
     threads: 1
@@ -1865,6 +1924,7 @@ rule pipeline_summary:
         python {PY_PIPELINE_SUMMARY} \
             --results_dir {params.results_dir} \
             --group_col   {params.group_col} \
+            --gene_set_json {params.gene_set_json} \
             --out_file    {output.summary}
         """
 
@@ -1872,12 +1932,14 @@ rule pipeline_summary:
 # =============================================================================
 # Safeguards (S1–S4) — see the safeguards: block in config.yaml
 # =============================================================================
-# S2 — low-complexity libraries: genes detected, ORFs assembled and reads
-# mapped per sample, relative to the run median.
+# S2 — low-complexity libraries: genes detected (among the tested genes,
+# deseq2.gene_set), ORFs assembled and reads mapped per sample, relative to the
+# run median. Also reports each sample's share of counts with protein evidence.
 rule safeguard_library_complexity:
     input:
         samplesheet = config["samplesheet"],
         matrix      = SG_MATRIX,
+        gene_set    = GENE_SET_JSON,
         orfs        = expand(f"{assembly_dir}/{{sra}}/orfs.fasta", sra=SRAS),
         quant       = expand(f"{quant_dir}/{{sra}}_quant/quant.sf", sra=SRAS),
         probes      = (expand(f"{probe_dir}/{{sra}}.txt", sra=SRAS) if LIBTYPE_CHECK else [])
@@ -1897,6 +1959,7 @@ rule safeguard_library_complexity:
         """
         python {PY_SG_LC} \
             --samplesheet {input.samplesheet} --matrix {input.matrix} \
+            --gene_set_json {input.gene_set} \
             --assembly_dir {assembly_dir} --quant_dir {quant_dir} \
             --warn_fraction {params.warn} \
             --default_libtype {params.libtype} {params.probe_arg} \

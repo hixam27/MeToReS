@@ -14,6 +14,8 @@ import pandas as pd
 ap = argparse.ArgumentParser()
 ap.add_argument("--results_dir", required=True, help="Pipeline's top-level results/ directory")
 ap.add_argument("--group_col", required=True, help="GROUP_COL used for folder naming (e.g. 'site')")
+ap.add_argument("--gene_set_json", default=None,
+                help="gene_set_summary.json (default: found under deg/*_deg_results/)")
 ap.add_argument("--out_file", required=True)
 a = ap.parse_args()
 
@@ -125,6 +127,27 @@ add(f"  Source: results/quant/*_quant/aux_info/meta_info.json ({len(meta_info_fi
 add("")
 
 # =============================================================================
+# 2b. Genes tested — protein-level evidence (deseq2.gene_set)
+# =============================================================================
+gs_path = a.gene_set_json
+if not gs_path or not os.path.exists(gs_path):
+    gs_found = glob.glob(os.path.join(R, "deg", "*_deg_results", "gene_set_summary.json"))
+    gs_path = gs_found[0] if gs_found else None
+gs = safe_read(gs_path, kind="json") if gs_path else None
+if gs:
+    add(f"Filtered genes               : {gs['n_filtered']:,}; with protein-level evidence: "
+        f"{gs['n_with_protein_evidence']:,} ({gs['pct_genes_with_protein_evidence']}% of genes, "
+        f"{gs['pct_counts_with_protein_evidence']}% of counts; per sample "
+        f"{gs['pct_counts_min']}-{gs['pct_counts_max']}%)")
+    mode = ("coding: genes with an eggNOG-mapper hit" if gs.get("gene_set") == "coding"
+            else "all: every filtered gene")
+    add(f"Genes passed to DESeq2       : {gs['n_genes_selected']:,} (deseq2.gene_set = {mode})")
+    add(f"  Source: {gs_path}")
+else:
+    add("Filtered genes with protein-level evidence : NOT FOUND (gene_set_summary.json)")
+add("")
+
+# =============================================================================
 # 3. DESeq2 — DEGs and contrast count
 # =============================================================================
 deg_summary_path = None
@@ -134,6 +157,17 @@ if deg_candidates:
     deg_df = safe_read(deg_summary_path)
 else:
     deg_df = None
+
+# With deseq2.gene_set: all, report the share of DEGs with protein-level evidence
+annotated = None
+if gs and gs.get("gene_set") == "all":
+    em_path = os.path.join(R, f"emapper_{GC}", "all_genes_emapper.emapper.annotations")
+    if os.path.exists(em_path):
+        annotated = set()
+        with open(em_path) as fh:
+            for line in fh:
+                if line.strip() and not line.startswith("#"):
+                    annotated.add(line.split("\t", 1)[0].strip())
 
 if deg_df is not None and "Total_DEGs" in deg_df.columns:
     total_degs = int(deg_df["Total_DEGs"].sum())
@@ -147,6 +181,12 @@ if deg_df is not None and "Total_DEGs" in deg_df.columns:
             extra = f"; {int(row['Borderline'])} borderline calls"
         if "PresenceAbsence" in deg_df.columns and pd.notna(row.get("PresenceAbsence")):
             extra += f"; {row['PresenceAbsence']}% presence/absence"
+        if annotated is not None:
+            dg = safe_read(os.path.join(os.path.dirname(deg_summary_path), str(row["Contrast"]),
+                                        "differential_genes.csv"))
+            if dg is not None and "GeneID" in dg.columns and len(dg):
+                extra += (f"; {100 * dg['GeneID'].astype(str).isin(annotated).mean():.1f}% "
+                          f"with protein-level evidence")
         add(f"    {row['Contrast']}: {row['Total_DEGs']} DEGs "
             f"({row['Upregulated']} up / {row['Downregulated']} down, "
             f"{row['Genes_tested']} genes tested{extra})")

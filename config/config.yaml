@@ -43,6 +43,9 @@ min_len:        25
 # =============================================================================
 sortmerna:
   bin:     "sortmerna"
+  # For total-RNA libraries with residual rRNA, the larger
+  # smr_v4.3_sensitive_db.fasta (installed with the default one) can be set
+  # here; give it its own idx_dir, since the index belongs to the database.
   db:      "{base_dir}/databases/sortmerna/smr_v4.3_default_db.fasta"
   idx_dir: "{base_dir}/databases/sortmerna/idx"
 
@@ -102,6 +105,14 @@ deseq2:
   # calls that do not depend on it; every gene passing min_count is then tested.
   # all_contrasts_summary.csv reports the cutoff and the borderline calls.
   independent_filtering: true
+  # Genes tested. A de novo catalogue also holds open reading frames predicted
+  # on non-coding RNA and library artefacts, which in total-RNA libraries can
+  # carry most of the counts. This set feeds DESeq2 and everything built on it
+  # (VST, ordinations, MaAsLin2, partial correlation, downstream summaries,
+  # safeguards). PIPELINE_SUMMARY.md reports the protein-evidence share either way.
+  #   "coding": filtered genes with protein-level evidence (an eggNOG-mapper hit)
+  #   "all":    every filtered gene (behaviour before v1.1.0)
+  gene_set: "coding"
   # Optional: a different grouping for DESeq2 only (e.g. a finer split of
   # group_col). Leave commented to reuse group_col / ref_level.
   # group_col: "deseq2_group"

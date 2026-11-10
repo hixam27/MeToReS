@@ -69,6 +69,8 @@ ap.add_argument("--default_libtype", default="ISR")
 ap.add_argument("--probe_dir", default=None,
                 help="directory holding {sra}.txt with Salmon's auto-detected library type")
 ap.add_argument("--deseq_group_col", default=None)
+ap.add_argument("--gene_set_json", default=None,
+                help="gene_set_summary.json from select_coding_genes (reported, not flagged)")
 ap.add_argument("--contrasts", default="", help="space-separated DESeq2 contrasts (A_vs_B)")
 ap.add_argument("--out_tsv", required=True)
 ap.add_argument("--out_json", required=True)
@@ -95,6 +97,16 @@ for _, r in ss.iterrows():
                     and str(r["libtype"]).strip() else a.default_libtype),
     })
 df = pd.DataFrame(rows)
+
+# Share of each sample's filtered-gene counts in genes with protein-level
+# evidence (eggNOG-mapper hit). Reported only; it does not flag.
+gene_set = None
+if a.gene_set_json and os.path.exists(a.gene_set_json):
+    with open(a.gene_set_json) as fh:
+        gene_set = json.load(fh)
+    ps = gene_set.get("per_sample", {})
+    df["pct_counts_protein_evidence"] = [
+        ps.get(str(s), {}).get("pct_counts_with_protein_evidence") for s in df["sample"]]
 
 
 def detected_libtype(sra):
@@ -162,6 +174,15 @@ summary = {
                     if pd.to_numeric(df[m], errors="coerce").notna().any() else None)
                 for m in metrics},
 }
+if gene_set is not None:
+    summary["protein_evidence"] = {
+        "gene_set": gene_set.get("gene_set"),
+        "evidence": gene_set.get("evidence", "eggNOG-mapper hit"),
+        "pct_counts_overall": gene_set.get("pct_counts_with_protein_evidence"),
+        "pct_counts_min": gene_set.get("pct_counts_min"),
+        "pct_counts_max": gene_set.get("pct_counts_max"),
+        "per_sample": {r["sample"]: r["pct_counts_protein_evidence"] for _, r in df.iterrows()},
+    }
 with open(a.out_json, "w") as fh:
     json.dump(summary, fh, indent=2)
 
@@ -178,6 +199,8 @@ mqc = {
         "Genes detected (% median)": r["genes_detected_pct_of_median"],
         "ORFs assembled (% median)": r["orfs_assembled_pct_of_median"],
         "Reads mapped (% median)": r["reads_mapped_pct_of_median"],
+        **({"Counts with protein evidence (%)": r["pct_counts_protein_evidence"]}
+           if gene_set is not None else {}),
         "Library type": r["libtype"],
         **({"Detected type": r["libtype_detected"] or "",
             "Type mismatch": "YES" if r["libtype_mismatch"] else "no"} if a.probe_dir else {}),
