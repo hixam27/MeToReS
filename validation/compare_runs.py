@@ -422,7 +422,7 @@ def _digest(path, roots):
     with open(path, "rb") as fh:
         data = fh.read()
     if path.endswith(".json"):                     # summaries record the run folder and time
-        for r in roots:
+        for r in sorted(roots, key=len, reverse=True):   # longer first: one may prefix the other
             data = data.replace(r.encode(), b"<RESULTS>")
         try:
             data = json.dumps(_drop_timestamps(json.loads(data)), sort_keys=True).encode()
