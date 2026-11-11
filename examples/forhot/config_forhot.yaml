@@ -1,0 +1,64 @@
+# MeToReS on the ForHot dataset: the demonstration run of the paper
+# (Söllinger et al. 2022, Sci Adv 8:eabm3230; SRA BioProject PRJNA663238;
+# soil data DataverseNO doi:10.18710/HZBZQE). Warming effect, ET vs AT, with
+# the integration layer on the published soil variables.
+#
+# Only keys that differ from config/config.yaml. From the MeToReS folder:
+#   bash examples/forhot/download_forhot.sh /path/to/forhot
+#   ulimit -n 65536        # SortMeRNA keeps many files open on these libraries
+#   snakemake --cores 40 --keep-going \
+#     --configfile config/config.yaml examples/forhot/config_forhot.yaml
+
+group_col: "group"            # AT = ambient, ET = warmed by about 6 °C
+ref_level: "AT"
+
+samplesheet: "{base_dir}/examples/forhot/samplesheet_forhot.csv"
+fastq_dir:   "/path/to/forhot/fastq"     # set this: the fastq/ folder written by download_forhot.sh
+output_dir:  "{base_dir}/results_forhot"
+
+salmon:
+  libtype: "IU"               # NEBNext Ultra, non-directional; S2 checks it
+
+deseq2:
+  formula: "~ gradient + group"   # paired: AT and ET plots of the same gradient (8 gradients)
+  gene_set: "coding"              # the v1.1.0 default, stated here for the record
+
+constrained_ordination:
+  enabled: true
+  variables: ["group", "site"]
+  conditioned: ["group:site"]     # warming effect given site
+
+# Soil data from 001_metadata.txt (DataverseNO doi:10.18710/HZBZQE) in
+# forhot_soil_chemistry.xlsx: sheet "soil", variables with the suffix _S
+# (DOC, DON, pH, Cmic, Nmic). Soil temperature is kept without the suffix,
+# so it is not analysed; rename its column to T_S to include it. The
+# "dictionary" and "source" sheets give units, source columns and the
+# sample-name mapping.
+chemical:
+  enabled: true
+  xlsx_file: "{base_dir}/examples/forhot/forhot_soil_chemistry.xlsx"
+  sheet: "soil"
+  rename_map: ""
+  fractions: "S:soil"
+  fraction: "soil"
+
+bioindicators:
+  enabled: true
+  fraction: "soil"
+  covariates: "group site"    # ppcor has no random effects: control warming and site
+
+bioindicator_venn:
+  enabled: true
+
+maaslin2:
+  enabled: true
+  fraction: "soil"
+  random_effects: "gradient"  # the AT/ET pair of each gradient
+
+# No metal gradient: resistome modules off.
+resistance:
+  enabled: false
+resistome_summary_plots:
+  enabled: false
+coselection_heatmap:
+  enabled: false

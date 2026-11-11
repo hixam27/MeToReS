@@ -60,7 +60,12 @@ Thumbs.db
 results*/
 strand_check/
 paper_numbers.txt
-validation/
+# validation/: only the scripts and the README are tracked; every report,
+# table and data file written there stays local
+validation/*
+!validation/*.py
+!validation/*.R
+!validation/README.md
 
 # Patch files received for git am
 *.patch
