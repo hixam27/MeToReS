@@ -13,8 +13,9 @@ Two uses:
                  1a: re-run from fixed quant.sf files) any difference is
                  UNEXPECTED, except assembly-derived numbers (multi-threaded
                  MEGAHIT), and every output table from gene selection onward
-                 must be identical byte for byte (absolute paths of the two
-                 results folders are ignored). With --tolerance 1b (re-run from the fixed
+                 must be identical byte for byte (in JSON summaries, the
+                 absolute paths of the two results folders and the
+                 timestamps are ignored). With --tolerance 1b (re-run from the fixed
                  catalogue, Salmon included) small differences from Salmon's
                  multi-threaded EM are accepted within the limits in TOL_1B.
                  Both also run table-level checks: per-contrast DESeq2 fold
@@ -409,12 +410,24 @@ STAGE_DIRS = ("deg/{gc}_deg_results", "downstream_{gc}", "constrained_ordination
 TABLE_EXT = (".csv", ".tsv", ".txt", ".json")
 
 
+def _drop_timestamps(x):
+    if isinstance(x, dict):
+        return {k: _drop_timestamps(v) for k, v in x.items() if k not in ("timestamp", "date", "time")}
+    if isinstance(x, list):
+        return [_drop_timestamps(v) for v in x]
+    return x
+
+
 def _digest(path, roots):
     with open(path, "rb") as fh:
         data = fh.read()
-    if path.endswith(".json"):                     # summaries may record the run folder
+    if path.endswith(".json"):                     # summaries record the run folder and time
         for r in roots:
             data = data.replace(r.encode(), b"<RESULTS>")
+        try:
+            data = json.dumps(_drop_timestamps(json.loads(data)), sort_keys=True).encode()
+        except ValueError:
+            pass
     return hashlib.md5(data).hexdigest()
 
 

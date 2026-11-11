@@ -421,7 +421,7 @@ A manuscript describing MeToReS is in preparation. Until it is published,
 please cite the software:
 
 > Klaina H, Pin L, Marzec-Grządziel A, Falcone F, Puglia GD, Astrain JJ.
-> *MeToReS: Metatranscriptomics Toward Ecosystem Responses* (version 1.1.0)
+> *MeToReS: Metatranscriptomics Toward Ecosystem Responses* (version 1.1.1)
 > [Software]. https://github.com/hixam27/MeToReS
 
 GitHub's "Cite this repository" link (in the "About" box on the right of the

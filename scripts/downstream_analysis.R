@@ -201,6 +201,7 @@ p <- ggplot(vectors_group, aes(Axis.1, Axis.2)) +
 ggsave(p, file="gene_pcoa.pdf", width=9, height=7, device=cairo_pdf)
 cat("  Saved: gene_pcoa.pdf\n")
 
+set.seed(42)   # fixed permutations, so the P value is the same on every run
 anosim_result <- anosim(t(table_filter2), vectors_group$group,
                          permutations=999, distance="bray")
 cat("  ANOSIM R:", round(anosim_result$statistic, 4),
